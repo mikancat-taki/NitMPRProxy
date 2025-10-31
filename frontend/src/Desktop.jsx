@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import FileExplorer from "./FileExplorer";
 import Browser from "./Browser";
+import Network from "./Network";
 import Window from "./Window";
 
 export default function Desktop() {
@@ -19,18 +20,19 @@ export default function Desktop() {
       <div style={{ padding: 10 }}>
         <button onClick={() => openApp("files")}>File Explorer</button>
         <button onClick={() => openApp("browser")}>Browser</button>
+        <button onClick={() => openApp("network")}>Network</button>
       </div>
-      {windows.map((w) =>
-        w.type === "files" ? (
-          <Window key={w.id} title="File Explorer" onClose={() => closeWindow(w.id)}>
-            <FileExplorer />
+      {windows.map((w) => {
+        let content;
+        if (w.type === "files") content = <FileExplorer />;
+        if (w.type === "browser") content = <Browser />;
+        if (w.type === "network") content = <Network />;
+        return (
+          <Window key={w.id} title={w.type} onClose={() => closeWindow(w.id)}>
+            {content}
           </Window>
-        ) : (
-          <Window key={w.id} title="Browser" onClose={() => closeWindow(w.id)}>
-            <Browser />
-          </Window>
-        )
-      )}
+        );
+      })}
     </div>
   );
 }
