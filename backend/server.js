@@ -1,6 +1,7 @@
 import express from "express";
 import sqlite3 from "sqlite3";
 import cors from "cors";
+import { WebSocketServer } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -15,8 +16,6 @@ const __dirname = path.dirname(__filename);
 
 // SQLite DB
 const db = new sqlite3.Database("./db.sqlite");
-
-// DB初期化
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +25,7 @@ db.serialize(() => {
   )`);
 });
 
-// ファイル一覧取得
+// ファイルAPI
 app.get("/api/files/:parent?", (req, res) => {
   const parent = req.params.parent || 0;
   db.all("SELECT * FROM files WHERE parent = ?", [parent], (err, rows) => {
@@ -35,7 +34,6 @@ app.get("/api/files/:parent?", (req, res) => {
   });
 });
 
-// ファイル作成
 app.post("/api/files", (req, res) => {
   const { name, content, parent } = req.body;
   db.run(
@@ -48,20 +46,29 @@ app.post("/api/files", (req, res) => {
   );
 });
 
-// ファイル更新
-app.put("/api/files/:id", (req, res) => {
-  const { content, name } = req.body;
-  db.run(
-    "UPDATE files SET content = ?, name = ? WHERE id = ?",
-    [content, name, req.params.id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ updated: this.changes });
-    }
-  );
-});
-
-// フロント配信（Renderではstaticとしても可）
+// フロント配信
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+
+// ===== WebSocketサーバー =====
+const wss = new WebSocketServer({ server });
+const clients = new Map();
+
+wss.on("connection", (ws) => {
+  const id = Date.now();
+  clients.set(id, ws);
+  console.log("Client connected:", id);
+
+  ws.on("message", (msg) => {
+    // 受信したメッセージを全クライアントにブロードキャスト
+    for (let [cid, client] of clients.entries()) {
+      if (client.readyState === 1) client.send(msg);
+    }
+  });
+
+  ws.on("close", () => {
+    clients.delete(id);
+    console.log("Client disconnected:", id);
+  });
+});
