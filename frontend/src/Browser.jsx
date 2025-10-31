@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React from "react";
 
 export default function Browser() {
-  const [url, setUrl] = useState("https://example.com");
-  const [src, setSrc] = useState(url);
-
   return (
-    <div>
-      <input value={url} onChange={(e) => setUrl(e.target.value)} style={{ width: "80%" }} />
-      <button onClick={() => setSrc(url)}>Go</button>
-      <iframe src={src} style={{ width: "100%", height: 300 }} title="Browser"></iframe>
+    <div className="browser">
+      <h3>仮想ブラウザ</h3>
+      <iframe
+        src="https://example.com"
+        style={{ width: "100%", height: "400px", border: "none" }}
+        title="仮想ブラウザ"
+      />
     </div>
   );
 }
