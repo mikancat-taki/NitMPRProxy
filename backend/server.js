@@ -1,26 +1,26 @@
 // server.js
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
 import cors from "cors";
 import bodyParser from "body-parser";
+import { open } from "sqlite";
+import sqlite3 from "sqlite3";
+import path from "path";
+import { fileURLToPath } from "url";
+import { WebSocketServer } from "ws";
 
-// ==== __dirname の設定（ESM用） ====
+// __dirname を ESM 用に定義
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ==== Express 初期化 ====
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==== ミドルウェア ====
+// ミドルウェア
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, "../frontend/dist"))); // フロント配信
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
-// ==== SQLite データベース初期化 ====
+// SQLite データベース初期化
 let db;
 async function initDB() {
   db = await open({
@@ -28,84 +28,82 @@ async function initDB() {
     driver: sqlite3.Database,
   });
 
-  // 仮想フォルダテーブル
-  await db.exec(`
+  // 仮想フォルダテーブル作成例
+  await db.run(`
     CREATE TABLE IF NOT EXISTS folders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      parent_id INTEGER,
-      FOREIGN KEY(parent_id) REFERENCES folders(id)
+      name TEXT NOT NULL
     )
   `);
 
-  // 仮想ファイルテーブル
-  await db.exec(`
+  // 仮想ファイルテーブル作成例
+  await db.run(`
     CREATE TABLE IF NOT EXISTS files (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      folder_id INTEGER,
       name TEXT NOT NULL,
       content TEXT,
-      folder_id INTEGER,
       FOREIGN KEY(folder_id) REFERENCES folders(id)
     )
   `);
 }
 
-// ==== API ルート ====
-
-/** フォルダ一覧取得 */
+// API 例：フォルダ取得
 app.get("/api/folders", async (req, res) => {
   const folders = await db.all("SELECT * FROM folders");
   res.json(folders);
 });
 
-/** フォルダ作成 */
+// API 例：フォルダ作成
 app.post("/api/folders", async (req, res) => {
-  const { name, parent_id } = req.body;
-  const result = await db.run(
-    "INSERT INTO folders (name, parent_id) VALUES (?, ?)",
-    [name, parent_id || null]
-  );
-  res.json({ id: result.lastID });
+  const { name } = req.body;
+  const result = await db.run("INSERT INTO folders(name) VALUES(?)", name);
+  res.json({ id: result.lastID, name });
 });
 
-/** ファイル一覧取得 */
-app.get("/api/files", async (req, res) => {
-  const { folder_id } = req.query;
-  const files = await db.all(
-    "SELECT * FROM files WHERE folder_id = ?",
-    [folder_id || null]
-  );
+// API 例：ファイル取得
+app.get("/api/files/:folderId", async (req, res) => {
+  const folderId = req.params.folderId;
+  const files = await db.all("SELECT * FROM files WHERE folder_id = ?", folderId);
   res.json(files);
 });
 
-/** ファイル作成 */
+// API 例：ファイル作成
 app.post("/api/files", async (req, res) => {
-  const { name, content, folder_id } = req.body;
+  const { folder_id, name, content } = req.body;
   const result = await db.run(
-    "INSERT INTO files (name, content, folder_id) VALUES (?, ?, ?)",
-    [name, content || "", folder_id || null]
+    "INSERT INTO files(folder_id, name, content) VALUES(?, ?, ?)",
+    folder_id,
+    name,
+    content
   );
-  res.json({ id: result.lastID });
+  res.json({ id: result.lastID, folder_id, name, content });
 });
 
-/** ファイル更新 */
-app.put("/api/files/:id", async (req, res) => {
-  const { id } = req.params;
-  const { content } = req.body;
-  await db.run("UPDATE files SET content = ? WHERE id = ?", [content, id]);
-  res.json({ success: true });
-});
-
-/** フロント側 SPA ルーティング対応 */
+// フロントエンドの SPA に対応
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
-// ==== サーバー起動 ====
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+// WebSocket サーバー（仮想ネットワーク用）
+const wss = new WebSocketServer({ noServer: true });
+
+wss.on("connection", (ws) => {
+  ws.on("message", (message) => {
+    console.log("Received:", message.toString());
+    // ここで仮想ネットワーク通信処理
+    ws.send(`Echo: ${message}`);
   });
-}).catch((err) => {
-  console.error("Failed to initialize DB", err);
+});
+
+// HTTP サーバーと WebSocket 統合
+const server = app.listen(PORT, async () => {
+  await initDB();
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
+server.on("upgrade", (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit("connection", ws, request);
+  });
 });
