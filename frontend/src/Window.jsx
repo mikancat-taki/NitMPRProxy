@@ -4,19 +4,16 @@ export default function Window({ title, children, onClose }) {
   return (
     <div style={{
       position: "absolute",
-      top: 100,
-      left: 100,
-      width: 600,
-      height: 400,
-      background: "white",
-      border: "2px solid #000",
-      borderRadius: 5,
-      padding: 10,
-      overflow: "auto",
-      zIndex: 10
+      top: 50,
+      left: 50,
+      width: 400,
+      background: "#222",
+      border: "1px solid #fff",
+      padding: 5,
+      color: "#fff"
     }}>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <b>{title}</b>
+        <span>{title}</span>
         <button onClick={onClose}>X</button>
       </div>
       <div>{children}</div>
