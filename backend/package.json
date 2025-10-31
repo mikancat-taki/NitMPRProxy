@@ -2,15 +2,12 @@
   "name": "webos-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "name": "backend",
-  "version": "1.0.0",
-  "type": "module",
   "dependencies": {
     "express": "^4.18.2",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "sqlite": "^4.1.2"
   }
 }
