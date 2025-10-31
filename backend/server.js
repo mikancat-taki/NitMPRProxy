@@ -1,21 +1,19 @@
 // backend/server.js
 import express from "express";
 import sqlite3 from "sqlite3";
-import { open } from "sqlite"; // sqlite用のpromiseラッパー
+import { open } from "sqlite";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// __dirname 相当を取得
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// JSONボディを扱う
 app.use(express.json());
 
-// SQLiteデータベースを開く
+// DB初期化
 let db;
 async function initDB() {
   db = await open({
@@ -23,7 +21,6 @@ async function initDB() {
     driver: sqlite3.Database
   });
 
-  // テーブル作成（存在しない場合のみ）
   await db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,12 +30,9 @@ async function initDB() {
   `);
 }
 
-// API例: ユーザー登録
 app.post("/api/register", async (req, res) => {
   const { name, email } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ error: "Name and email are required" });
-  }
+  if (!name || !email) return res.status(400).json({ error: "Name and email required" });
 
   try {
     const result = await db.run("INSERT INTO users (name, email) VALUES (?, ?)", [name, email]);
@@ -48,7 +42,6 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-// API例: ユーザー一覧取得
 app.get("/api/users", async (req, res) => {
   try {
     const users = await db.all("SELECT * FROM users");
@@ -58,11 +51,9 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
-// サーバー起動
+// DB初期化後にサーバー起動
 initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }).catch(err => {
-  console.error("Failed to initialize database:", err);
+  console.error("DB initialization failed:", err);
 });
