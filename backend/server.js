@@ -1,70 +1,68 @@
+// backend/server.js
 import express from "express";
 import sqlite3 from "sqlite3";
-import cors from "cors";
-import { WebSocketServer } from "ws";
+import { open } from "sqlite"; // sqlite用のpromiseラッパー
 import path from "path";
 import { fileURLToPath } from "url";
+
+// __dirname 相当を取得
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// JSONボディを扱う
 app.use(express.json());
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// SQLite DB
-const db = new sqlite3.Database("./db.sqlite");
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS files (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    content TEXT,
-    parent INTEGER DEFAULT 0
-  )`);
-});
-
-// ファイルAPI
-app.get("/api/files/:parent?", (req, res) => {
-  const parent = req.params.parent || 0;
-  db.all("SELECT * FROM files WHERE parent = ?", [parent], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
-
-app.post("/api/files", (req, res) => {
-  const { name, content, parent } = req.body;
-  db.run(
-    "INSERT INTO files (name, content, parent) VALUES (?, ?, ?)",
-    [name, content || "", parent || 0],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID });
-    }
-  );
-});
-
-// フロント配信
-app.use(express.static(path.join(__dirname, "../frontend/dist")));
-
-const server = app.listen(PORT, () => console.log(`Server running on ${PORT}`));
-
-// ===== WebSocketサーバー =====
-const wss = new WebSocketServer({ server });
-const clients = new Map();
-
-wss.on("connection", (ws) => {
-  const id = Date.now();
-  clients.set(id, ws);
-
-  ws.on("message", (msg) => {
-    // 全クライアントにブロードキャスト
-    for (let [cid, client] of clients.entries()) {
-      if (client.readyState === 1) client.send(msg);
-    }
+// SQLiteデータベースを開く
+let db;
+async function initDB() {
+  db = await open({
+    filename: path.join(__dirname, "database.db"),
+    driver: sqlite3.Database
   });
 
-  ws.on("close", () => clients.delete(id));
+  // テーブル作成（存在しない場合のみ）
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT UNIQUE
+    )
+  `);
+}
+
+// API例: ユーザー登録
+app.post("/api/register", async (req, res) => {
+  const { name, email } = req.body;
+  if (!name || !email) {
+    return res.status(400).json({ error: "Name and email are required" });
+  }
+
+  try {
+    const result = await db.run("INSERT INTO users (name, email) VALUES (?, ?)", [name, email]);
+    res.json({ success: true, userId: result.lastID });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API例: ユーザー一覧取得
+app.get("/api/users", async (req, res) => {
+  try {
+    const users = await db.all("SELECT * FROM users");
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// サーバー起動
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}).catch(err => {
+  console.error("Failed to initialize database:", err);
 });
