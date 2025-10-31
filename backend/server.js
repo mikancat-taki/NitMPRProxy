@@ -58,17 +58,13 @@ const clients = new Map();
 wss.on("connection", (ws) => {
   const id = Date.now();
   clients.set(id, ws);
-  console.log("Client connected:", id);
 
   ws.on("message", (msg) => {
-    // 受信したメッセージを全クライアントにブロードキャスト
+    // 全クライアントにブロードキャスト
     for (let [cid, client] of clients.entries()) {
       if (client.readyState === 1) client.send(msg);
     }
   });
 
-  ws.on("close", () => {
-    clients.delete(id);
-    console.log("Client disconnected:", id);
-  });
+  ws.on("close", () => clients.delete(id));
 });
