@@ -1,29 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import FileExplorer from "./FileExplorer";
 import Browser from "./Browser";
+import Window from "./Window";
 
-export default function Desktop({ username }) {
-  const [files, setFiles] = useState([]);
+export default function Desktop() {
+  const [windows, setWindows] = useState([]);
 
-  const fetchFiles = async () => {
-    const res = await fetch("http://localhost:3000/api/fs/list/root");
-    const data = await res.json();
-    setFiles(data);
+  const openApp = (type) => {
+    setWindows((prev) => [...prev, { id: Date.now(), type }]);
   };
 
-  useEffect(() => { fetchFiles(); }, []);
+  const closeWindow = (id) => {
+    setWindows((prev) => prev.filter((w) => w.id !== id));
+  };
 
   return (
-    <div className="w-screen h-screen bg-gray-900 text-white p-4">
-      <h1 className="mb-4">Welcome, {username} - WebOS</h1>
-      <div className="flex space-x-4">
-        <div>
-          <h2>Files</h2>
-          <ul>
-            {files.map((f,i)=><li key={i}>{f}</li>)}
-          </ul>
-        </div>
-        <Browser />
+    <div style={{ width: "100vw", height: "100vh", background: "#0078d7" }}>
+      <div style={{ padding: 10 }}>
+        <button onClick={() => openApp("files")}>File Explorer</button>
+        <button onClick={() => openApp("browser")}>Browser</button>
       </div>
+      {windows.map((w) =>
+        w.type === "files" ? (
+          <Window key={w.id} title="File Explorer" onClose={() => closeWindow(w.id)}>
+            <FileExplorer />
+          </Window>
+        ) : (
+          <Window key={w.id} title="Browser" onClose={() => closeWindow(w.id)}>
+            <Browser />
+          </Window>
+        )
+      )}
     </div>
   );
 }
