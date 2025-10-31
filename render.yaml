@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: webos
+    env: node
+    plan: free
+    buildCommand: |
+      cd frontend && npm install && npm run build
+      cd ../backend && npm install
+    startCommand: node backend/server.js
