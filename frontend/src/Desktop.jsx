@@ -8,28 +8,22 @@ import WASMApp from "./WASMApp";
 export default function Desktop() {
   const [windows, setWindows] = useState([]);
 
-  const openApp = (type) => {
-    setWindows(prev => [...prev, { id: Date.now(), type }]);
+  const openWindow = (component) => {
+    setWindows([...windows, component]);
   };
 
-  const closeWindow = (id) => setWindows(prev => prev.filter(w => w.id !== id));
-
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#111" }}>
-      <div style={{ padding: 10 }}>
-        <button onClick={() => openApp("files")}>File Explorer</button>
-        <button onClick={() => openApp("browser")}>Browser</button>
-        <button onClick={() => openApp("network")}>Network</button>
-        <button onClick={() => openApp("wasm")}>WASM App</button>
+    <div className="desktop">
+      <div className="taskbar">
+        <button onClick={() => openWindow(<FileExplorer />)}>ファイル</button>
+        <button onClick={() => openWindow(<Browser />)}>ブラウザ</button>
+        <button onClick={() => openWindow(<Network />)}>ネットワーク</button>
+        <button onClick={() => openWindow(<WASMApp />)}>WASMアプリ</button>
       </div>
-      {windows.map(w => {
-        let content;
-        if (w.type === "files") content = <FileExplorer />;
-        if (w.type === "browser") content = <Browser />;
-        if (w.type === "network") content = <Network />;
-        if (w.type === "wasm") content = <WASMApp />;
-        return <Window key={w.id} title={w.type} onClose={() => closeWindow(w.id)}>{content}</Window>
-      })}
+
+      {windows.map((win, index) => (
+        <Window key={index}>{win}</Window>
+      ))}
     </div>
   );
 }
